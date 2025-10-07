@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
 import os
 import base64
@@ -45,6 +45,14 @@ def index():
 def health_check():
     """健康检查"""
     return jsonify({'status': 'ok', 'message': 'API服务正常运行'})
+
+@app.route('/MP_verify_<path:filename>')
+def wechat_verify(filename):
+    """微信域名验证文件"""
+    try:
+        return send_from_directory('.', f'MP_verify_{filename}')
+    except FileNotFoundError:
+        return '', 404
 
 @app.route('/api/recognize-book', methods=['POST'])
 def recognize_book():
