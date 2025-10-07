@@ -1,8 +1,8 @@
 //app.js
 App({
   globalData: {
-    // API服务器地址 - 本地开发环境
-    apiBaseUrl: 'http://localhost:5002',
+    // 生产环境API地址
+    apiBaseUrl: 'https://shuping-miniprogram.vercel.app',
     userInfo: null
   },
 
