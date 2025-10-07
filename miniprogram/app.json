@@ -1,0 +1,25 @@
+{
+  "pages": [
+    "pages/index/index",
+    "pages/result/result"
+  ],
+  "window": {
+    "backgroundTextStyle": "light",
+    "navigationBarBackgroundColor": "#1890ff",
+    "navigationBarTitleText": "书评助手",
+    "navigationBarTextStyle": "white",
+    "enablePullDownRefresh": false
+  },
+  "permission": {
+    "scope.camera": {
+      "desc": "需要使用摄像头拍摄书籍封面"
+    },
+    "scope.album": {
+      "desc": "需要访问相册选择书籍图片"
+    }
+  },
+  "requiredBackgroundModes": [],
+  "style": "v2",
+  "sitemapLocation": "sitemap.json",
+  "lazyCodeLoading": "requiredComponents"
+}

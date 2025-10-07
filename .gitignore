@@ -1,0 +1,57 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+
+# API Keys and Secrets
+.env
+*.key
+*.pem
+.credentials
+config.json
+
+# User config directory
+.shuping/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Test files
+test_*.py
+*.test.py
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# 微信小程序
+miniprogram/node_modules/
+miniprogram/miniprogram_npm/
+miniprogram/.tea/
+
+# Vercel
+.vercel/
+
+# Railway
+.railway/
+
+# Build artifacts
+build/
+dist/

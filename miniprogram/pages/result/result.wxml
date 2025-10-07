@@ -1,0 +1,124 @@
+<!--result.wxml-->
+<view class="page-container">
+  <!-- 返回按钮 -->
+  <view class="header-actions">
+    <button class="btn-secondary back-btn" bindtap="goBack">
+      ← 返回
+    </button>
+  </view>
+
+  <!-- 书籍信息卡片 -->
+  <view class="book-info-card card">
+    <view class="book-header">
+      <text class="text-title">📖 书籍信息</text>
+      <text class="recognition-type">{{recognitionTypeText}}</text>
+    </view>
+
+    <view class="book-details">
+      <view class="detail-item">
+        <text class="detail-label">书名：</text>
+        <text class="detail-value">{{bookInfo.title || '未识别'}}</text>
+      </view>
+      <view class="detail-item">
+        <text class="detail-label">作者：</text>
+        <text class="detail-value">{{bookInfo.author || '未识别'}}</text>
+      </view>
+      <view class="detail-item">
+        <text class="detail-label">出版社：</text>
+        <text class="detail-value">{{bookInfo.publisher || '未识别'}}</text>
+      </view>
+    </view>
+  </view>
+
+  <!-- 豆瓣评分卡片 -->
+  <view class="douban-info-card card" wx:if="{{doubanInfo}}">
+    <view class="douban-header">
+      <text class="text-title">⭐ 豆瓣评分</text>
+    </view>
+
+    <view class="douban-content">
+      <!-- 评分信息 -->
+      <view class="rating-section" wx:if="{{doubanInfo.rating}}">
+        <view class="rating-display">
+          <text class="rating-score">{{doubanInfo.rating}}</text>
+          <text class="rating-total">/10</text>
+        </view>
+        <view class="rating-stars">
+          <text class="star" wx:for="{{stars}}" wx:key="index"
+                style="color: {{item ? '#fadb14' : '#d9d9d9'}}">★</text>
+        </view>
+        <text class="rating-people" wx:if="{{doubanInfo.rating_people}}">
+          {{doubanInfo.rating_people}}人评价
+        </text>
+      </view>
+
+      <!-- 无评分提示 -->
+      <view class="no-rating" wx:else>
+        <text class="no-rating-text">暂无评分</text>
+        <text class="no-rating-desc">这可能是一本新书</text>
+      </view>
+
+      <!-- 书籍详情 -->
+      <view class="book-meta">
+        <view class="meta-item" wx:if="{{doubanInfo.title}}">
+          <text class="meta-label">豆瓣书名：</text>
+          <text class="meta-value">{{doubanInfo.title}}</text>
+        </view>
+        <view class="meta-item" wx:if="{{doubanInfo.author}}">
+          <text class="meta-label">作者：</text>
+          <text class="meta-value">{{doubanInfo.author}}</text>
+        </view>
+        <view class="meta-item" wx:if="{{doubanInfo.publisher}}">
+          <text class="meta-label">出版社：</text>
+          <text class="meta-value">{{doubanInfo.publisher}}</text>
+        </view>
+        <view class="meta-item" wx:if="{{doubanInfo.publish_year}}">
+          <text class="meta-label">出版年：</text>
+          <text class="meta-value">{{doubanInfo.publish_year}}</text>
+        </view>
+      </view>
+
+      <!-- 简介 -->
+      <view class="book-intro" wx:if="{{doubanInfo.intro}}">
+        <text class="intro-title">简介</text>
+        <text class="intro-content">{{doubanInfo.intro}}</text>
+        <view class="intro-toggle" wx:if="{{doubanInfo.intro.length > 100}}">
+          <text class="toggle-btn" bindtap="toggleIntro">
+            {{showFullIntro ? '收起' : '展开'}}
+          </text>
+        </view>
+      </view>
+
+      <!-- 豆瓣链接 -->
+      <view class="douban-link" wx:if="{{doubanInfo.url}}">
+        <button class="btn-primary link-btn" bindtap="openDoubanPage">
+          在豆瓣中查看
+        </button>
+      </view>
+    </view>
+  </view>
+
+  <!-- 未找到结果 -->
+  <view class="no-result card" wx:else>
+    <view class="no-result-icon">😔</view>
+    <text class="no-result-title">未找到豆瓣信息</text>
+    <text class="no-result-desc">可能是识别错误或这本书尚未收录到豆瓣</text>
+
+    <!-- 重新搜索 -->
+    <view class="retry-section">
+      <text class="retry-title">手动搜索</text>
+      <input class="retry-input" placeholder="请输入正确的书名"
+             bindinput="onRetryInput" value="{{retryTitle}}" />
+      <button class="btn-primary retry-btn" bindtap="retrySearch"
+              disabled="{{!retryTitle || isRetrying}}">
+        {{isRetrying ? '搜索中...' : '重新搜索'}}
+      </button>
+    </view>
+  </view>
+
+  <!-- 操作按钮 -->
+  <view class="action-buttons">
+    <button class="btn-secondary" bindtap="goBack">重新识别</button>
+    <button class="btn-primary" bindtap="shareResult" wx:if="{{doubanInfo}}">分享结果</button>
+  </view>
+</view>
