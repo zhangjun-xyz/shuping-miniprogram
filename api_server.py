@@ -8,6 +8,7 @@ import logging
 
 from book_extractor import BookInfoExtractor
 from douban_scraper import DoubanScraper
+from book_api import BookAPI
 
 # 设置日志
 log_level = logging.INFO if os.getenv('FLASK_ENV') == 'production' else logging.DEBUG
@@ -134,25 +135,38 @@ def recognize_book():
         if temp_file and os.path.exists(temp_file.name):
             os.unlink(temp_file.name)
 
-        # 搜索豆瓣
-        douban_info = None
+        # 搜索图书信息
+        book_detail_info = None
         if book_info.get('title'):
+            # 首先尝试豆瓣搜索
             try:
                 scraper = DoubanScraper()
-                douban_info = scraper.search_book(
+                book_detail_info = scraper.search_book(
                     title=book_info['title'],
                     author=book_info.get('author'),
                     publisher=book_info.get('publisher')
                 )
-                logger.info(f"豆瓣搜索结果: {douban_info}")
+                logger.info(f"豆瓣搜索结果: {book_detail_info}")
             except Exception as e:
                 logger.error(f"豆瓣搜索失败: {str(e)}")
+
+            # 如果豆瓣搜索失败，使用备用API
+            if not book_detail_info:
+                try:
+                    book_api = BookAPI()
+                    book_detail_info = book_api.search_book(
+                        title=book_info['title'],
+                        author=book_info.get('author')
+                    )
+                    logger.info(f"备用API搜索结果: {book_detail_info}")
+                except Exception as e:
+                    logger.error(f"备用API搜索失败: {str(e)}")
 
         return jsonify({
             'success': True,
             'data': {
                 'book_info': book_info,
-                'douban_info': douban_info,
+                'douban_info': book_detail_info,  # 改名以保持兼容性
                 'use_ai': use_ai
             }
         })
@@ -166,7 +180,7 @@ def recognize_book():
 
 @app.route('/api/search-douban', methods=['POST'])
 def search_douban():
-    """手动搜索豆瓣"""
+    """手动搜索图书信息"""
     try:
         data = request.json
         if not data or not data.get('title'):
@@ -175,20 +189,38 @@ def search_douban():
                 'error': '请提供书名'
             }), 400
 
-        scraper = DoubanScraper()
-        douban_info = scraper.search_book(
-            title=data['title'],
-            author=data.get('author'),
-            publisher=data.get('publisher')
-        )
+        # 首先尝试豆瓣搜索
+        book_info = None
+        try:
+            scraper = DoubanScraper()
+            book_info = scraper.search_book(
+                title=data['title'],
+                author=data.get('author'),
+                publisher=data.get('publisher')
+            )
+            logger.info(f"豆瓣搜索结果: {book_info}")
+        except Exception as e:
+            logger.error(f"豆瓣搜索失败: {str(e)}")
+
+        # 如果豆瓣搜索失败，使用备用API
+        if not book_info:
+            try:
+                book_api = BookAPI()
+                book_info = book_api.search_book(
+                    title=data['title'],
+                    author=data.get('author')
+                )
+                logger.info(f"备用API搜索结果: {book_info}")
+            except Exception as e:
+                logger.error(f"备用API搜索失败: {str(e)}")
 
         return jsonify({
             'success': True,
-            'data': douban_info
+            'data': book_info
         })
 
     except Exception as e:
-        logger.error(f"搜索豆瓣失败: {str(e)}")
+        logger.error(f"搜索图书失败: {str(e)}")
         return jsonify({
             'success': False,
             'error': f'搜索失败: {str(e)}'
