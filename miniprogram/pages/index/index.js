@@ -81,7 +81,7 @@ Page({
     wx.request({
       url: `${apiUrl}/health`,
       method: 'GET',
-      timeout: 10000,
+      timeout: 30000, // 增加到30秒
       success: function(res) {
         console.log('=== 连接成功 ===')
         console.log('响应状态:', res.statusCode)
@@ -131,6 +131,7 @@ Page({
       url: `${app.globalData.apiBaseUrl}/api/recognize-book`,
       filePath: that.data.imageUrl,
       name: 'image',
+      timeout: 60000, // 增加到60秒
       header: {
         'content-type': 'multipart/form-data'
       },

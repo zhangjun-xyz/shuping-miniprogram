@@ -35,6 +35,8 @@ Thumbs.db
 # Test files
 test_*.py
 *.test.py
+test_comments.py
+debug_*.py
 
 # Temporary files
 tmp/
@@ -55,3 +57,17 @@ miniprogram/.tea/
 # Build artifacts
 build/
 dist/
+
+# 备份文件
+*.backup
+*_final.py
+*_server.py
+
+# Debug HTML
+*_debug.html
+douban_*.html
+
+# 部署和测试脚本（保留主要的）
+fix-*.sh
+miniprogram-api-config-fix.js
+wechat-miniprogram-config.js

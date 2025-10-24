@@ -89,6 +89,23 @@
         </view>
       </view>
 
+      <!-- 豆瓣短评 -->
+      <view class="short-comments" wx:if="{{doubanInfo.short_comments && doubanInfo.short_comments.length > 0}}">
+        <text class="comments-title">💬 豆瓣短评</text>
+        <view class="comment-item" wx:for="{{doubanInfo.short_comments}}" wx:key="index">
+          <view class="comment-header">
+            <text class="comment-author">{{item.author}}</text>
+            <view class="comment-rating" wx:if="{{item.rating}}">
+              <text class="star" wx:for="{{item.rating}}" wx:for-item="star" wx:key="star">★</text>
+            </view>
+          </view>
+          <text class="comment-content">{{item.content}}</text>
+          <view class="comment-footer">
+            <text class="useful-count">👍 {{item.useful_count}}人觉得有用</text>
+          </view>
+        </view>
+      </view>
+
       <!-- 豆瓣链接 -->
       <view class="douban-link" wx:if="{{doubanInfo.url}}">
         <button class="btn-primary link-btn" bindtap="openDoubanPage">

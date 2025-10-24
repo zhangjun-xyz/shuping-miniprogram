@@ -5,6 +5,10 @@ import base64
 import tempfile
 from pathlib import Path
 import logging
+from dotenv import load_dotenv
+
+# 加载环境变量
+load_dotenv()
 
 from book_extractor import BookInfoExtractor
 from douban_scraper import DoubanScraper

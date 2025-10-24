@@ -1,8 +1,8 @@
 //app.js
 App({
   globalData: {
-    // 生产环境API地址
-    apiBaseUrl: 'https://shuping-miniprogram.vercel.app',
+    // 生产环境API地址 - 阿里云ECS服务器
+    apiBaseUrl: 'https://shuping.zhangjun-xyz.top',  // 生产环境HTTPS域名
     userInfo: null
   },
 
@@ -56,6 +56,7 @@ App({
         url: `${app.globalData.apiBaseUrl}${options.url}`,
         method: options.method || 'GET',
         data: options.data || {},
+        timeout: options.timeout || 30000, // 默认30秒超时
         header: {
           'content-type': 'application/json',
           ...options.header

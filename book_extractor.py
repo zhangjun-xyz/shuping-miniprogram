@@ -2,6 +2,9 @@ import base64
 import requests
 from typing import Dict
 import json
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class BookInfoExtractor:
@@ -10,19 +13,24 @@ class BookInfoExtractor:
     def __init__(self, api_key: str):
         """
         初始化提取器
-        支持xAI Grok API
+        支持通义千问 Qwen-VL API
         """
         self.api_key = api_key
 
-        # Grok API配置
-        if api_key.startswith('xai-'):
+        # 通义千问 API配置
+        if api_key.startswith('sk-'):
+            self.api_base_url = "https://dashscope.aliyuncs.com/compatible-mode/v1"
+            self.model = "qwen-vl-max"  # 使用qwen-vl-max模型
+            self.api_endpoint = f"{self.api_base_url}/chat/completions"
+        elif api_key.startswith('xai-'):
             self.api_base_url = "https://api.x.ai"
-            # 使用最新的Grok视觉模型 (2024年12月版本)
-            self.model = "grok-2-vision-1212"  # 最新的视觉模型
+            self.model = "grok-2-vision-1212"
+            self.api_endpoint = f"{self.api_base_url}/v1/chat/completions"
         else:
             # 兼容其他API
             self.api_base_url = "https://api.openai.com"
             self.model = "gpt-4-vision-preview"
+            self.api_endpoint = f"{self.api_base_url}/v1/chat/completions"
 
         self.headers = {
             "Authorization": f"Bearer {api_key}",
@@ -94,7 +102,7 @@ class BookInfoExtractor:
 
         try:
             response = requests.post(
-                f"{self.api_base_url}/v1/chat/completions",
+                self.api_endpoint,
                 headers=self.headers,
                 json=payload,
                 timeout=30
@@ -105,7 +113,7 @@ class BookInfoExtractor:
             content = result['choices'][0]['message']['content']
 
             # 打印原始响应以便调试
-            print(f"AI原始响应: {content}")
+            logger.info(f"AI原始响应: {content}")
 
             # 清理响应内容
             content = content.strip()
@@ -135,14 +143,14 @@ class BookInfoExtractor:
                 return book_info
 
             except json.JSONDecodeError:
-                # 如果JSON解析失败，尝试从文本中提取
-                print(f"JSON解析失败，尝试文本解析")
+                # 如果JSON解析失败,尝试从文本中提取
+                logger.warning(f"JSON解析失败，尝试文本解析: {content}")
                 return self._parse_text_response(content)
 
         except requests.exceptions.RequestException as e:
-            print(f"API请求失败: {e}")
+            logger.error(f"API请求失败: {e}")
             if hasattr(e, 'response') and e.response is not None:
-                print(f"错误详情: {e.response.text}")
+                logger.error(f"错误详情: {e.response.text}")
             return {}
 
     def _parse_text_response(self, content: str) -> Dict[str, str]:
