@@ -1,18 +1,38 @@
-# 📚 书评助手 - Book Rating Assistant
+# 📚 书评助手小程序
+
+> AI驱动的图书识别与豆瓣评分查询小程序
+
+[![Version](https://img.shields.io/badge/version-1.0.0-blue.svg)](https://github.com/zhangjun-xyz/shuping-miniprogram)
+[![Status](https://img.shields.io/badge/status-production-success.svg)](https://shuping.zhangjun-xyz.top)
+[![AI](https://img.shields.io/badge/AI-通义千问-orange.svg)](https://dashscope.aliyuncs.com)
 
 一个功能完整的书籍豆瓣评分查询工具，支持命令行、API服务和微信小程序多种使用方式。
 
 ## ✨ 功能特色
 
-### 🔍 多种识别方式
-- **AI自动识别**: 使用Grok Vision API自动识别书籍封面
-- **手动输入**: 支持手动输入书籍信息
+### 🤖 AI图书识别
+- **通义千问视觉模型**: 使用阿里云Qwen-VL-Max自动识别书籍封面
 - **拍照识别**: 微信小程序支持拍照实时识别
+- **相册选择**: 从相册选择图片进行识别
+- **高准确率**: 准确提取书名、作者、出版社
 
 ### ⭐ 豆瓣集成
 - 精准的书名匹配算法
 - 完整的豆瓣图书信息
-- 评分、简介、出版信息展示
+- 评分、星级、评价人数展示
+- **豆瓣短评**: 精选3条优质短评
+
+### 💬 豆瓣短评展示（新增）
+- 显示3条精选短评
+- 包含评论内容、作者、评分
+- 展示点赞数（有用数）
+- 快速了解书籍口碑
+
+### 📝 手动输入搜索
+- 支持手动输入书籍信息
+- 可选填作者、出版社
+- 搜索失败智能重试
+- 友好的错误提示
 
 ### 🔐 安全管理
 - 多种API密钥存储方式
@@ -83,7 +103,7 @@ curl http://localhost:5000/health
 - **Flask** - Web框架和API服务
 - **Requests** - HTTP客户端
 - **BeautifulSoup** - HTML解析
-- **Grok Vision API** - AI图像识别
+- **通义千问 Qwen-VL-Max** - AI图像识别（v1.0.0更新）
 
 ### 前端技术
 - **微信小程序** - 原生小程序开发
@@ -242,15 +262,35 @@ sudo systemctl enable shuping-api
 
 本项目采用 MIT 许可证 - 查看 [LICENSE](LICENSE) 文件了解详情
 
+## 📝 版本历史
+
+### v1.0.0 (2025-10-24) - 首个生产版本
+- 🎉 AI图书识别功能（通义千问Qwen-VL-Max）
+- ⭐ 豆瓣评分自动查询
+- 💬 豆瓣短评展示（3条）
+- 📝 手动输入搜索功能
+- 🔧 切换AI服务从Grok到通义千问
+- ✨ 改进日志记录和错误处理
+
+详见 [RELEASE_v1.0.0.md](./RELEASE_v1.0.0.md)
+
+## 🌐 生产环境
+
+- **API地址**: https://shuping.zhangjun-xyz.top
+- **状态**: ✅ 正常运行
+- **SSL证书**: DigiCert (有效至2026-01-18)
+- **监控**: 24/7运行
+
 ## 📞 联系方式
 
-- **项目维护者**: Claude Code Assistant
+- **开发者**: zj
+- **项目主页**: https://github.com/zhangjun-xyz/shuping-miniprogram
+- **问题反馈**: [GitHub Issues](https://github.com/zhangjun-xyz/shuping-miniprogram/issues)
 - **技术支持**: 查看 [开发指南](DEVELOPMENT.md) 和 [部署指南](DEPLOYMENT.md)
-- **问题反馈**: 通过GitHub Issues提交
 
 ## 🙏 致谢
 
-- [Grok AI](https://x.ai/) - 提供强大的视觉识别API
+- [阿里云通义千问](https://dashscope.aliyuncs.com) - 提供强大的视觉识别API
 - [豆瓣](https://douban.com/) - 提供丰富的图书数据
 - [微信小程序](https://developers.weixin.qq.com/) - 提供便捷的移动端开发平台
 - [Flask](https://flask.palletsprojects.com/) - 轻量级Web框架
