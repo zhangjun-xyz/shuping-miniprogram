@@ -6,6 +6,7 @@ import tempfile
 from pathlib import Path
 import logging
 from dotenv import load_dotenv
+import time  # 添加time模块用于计时
 
 # 加载环境变量
 load_dotenv()
@@ -16,7 +17,10 @@ from book_api import BookAPI
 
 # 设置日志
 log_level = logging.INFO if os.getenv('FLASK_ENV') == 'production' else logging.DEBUG
-logging.basicConfig(level=log_level)
+logging.basicConfig(
+    level=log_level,
+    format='%(asctime)s [%(levelname)s] %(name)s: %(message)s'
+)
 logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
@@ -185,6 +189,10 @@ def recognize_book():
 @app.route('/api/search-douban', methods=['POST'])
 def search_douban():
     """手动搜索图书信息"""
+    request_start = time.time()
+    logger.info("=" * 60)
+    logger.info("🔍 开始搜索书籍")
+
     try:
         data = request.json
         if not data or not data.get('title'):
@@ -193,12 +201,18 @@ def search_douban():
                 'error': '请提供书名'
             }), 400
 
+        title = data['title']
+        logger.info(f"📖 书名: {title}")
+
         # 首先尝试豆瓣搜索
         book_info = None
         # 检查是否需要包含短评（默认不包含，提升性能）
         include_comments = data.get('include_comments', False)
 
+        # 豆瓣搜索
+        douban_start = time.time()
         try:
+            logger.info("⏱️  [1/2] 开始豆瓣搜索...")
             scraper = DoubanScraper()
             book_info = scraper.search_book(
                 title=data['title'],
@@ -206,29 +220,46 @@ def search_douban():
                 publisher=data.get('publisher'),
                 include_comments=include_comments
             )
-            logger.info(f"豆瓣搜索结果: {book_info}")
+            douban_time = (time.time() - douban_start) * 1000
+            logger.info(f"✅ 豆瓣搜索完成: {douban_time:.2f}ms")
+            logger.info(f"📊 搜索结果: {book_info}")
         except Exception as e:
-            logger.error(f"豆瓣搜索失败: {str(e)}")
+            douban_time = (time.time() - douban_start) * 1000
+            logger.error(f"❌ 豆瓣搜索失败 ({douban_time:.2f}ms): {str(e)}")
 
         # 如果豆瓣搜索失败，使用备用API
         if not book_info:
+            backup_start = time.time()
             try:
+                logger.info("⏱️  [2/2] 使用备用API搜索...")
                 book_api = BookAPI()
                 book_info = book_api.search_book(
                     title=data['title'],
                     author=data.get('author')
                 )
-                logger.info(f"备用API搜索结果: {book_info}")
+                backup_time = (time.time() - backup_start) * 1000
+                logger.info(f"✅ 备用API搜索完成: {backup_time:.2f}ms")
+                logger.info(f"📊 备用API结果: {book_info}")
             except Exception as e:
-                logger.error(f"备用API搜索失败: {str(e)}")
+                backup_time = (time.time() - backup_start) * 1000
+                logger.error(f"❌ 备用API失败 ({backup_time:.2f}ms): {str(e)}")
+
+        total_time = (time.time() - request_start) * 1000
+        logger.info(f"⏰ 总耗时: {total_time:.2f}ms")
+        logger.info("=" * 60)
 
         return jsonify({
             'success': True,
-            'data': book_info
+            'data': book_info,
+            '_debug': {
+                'total_time_ms': round(total_time, 2)
+            }
         })
 
     except Exception as e:
-        logger.error(f"搜索图书失败: {str(e)}")
+        total_time = (time.time() - request_start) * 1000
+        logger.error(f"❌ 搜索失败 ({total_time:.2f}ms): {str(e)}")
+        logger.info("=" * 60)
         return jsonify({
             'success': False,
             'error': f'搜索失败: {str(e)}'

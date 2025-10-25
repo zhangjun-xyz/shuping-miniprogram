@@ -5,6 +5,10 @@ import time
 import urllib.parse
 import re
 from concurrent.futures import ThreadPoolExecutor, as_completed
+import logging
+
+# 配置日志
+logger = logging.getLogger(__name__)
 
 
 class DoubanScraper:
@@ -32,13 +36,16 @@ class DoubanScraper:
             publisher: 出版社（可选）
             include_comments: 是否包含短评（默认False，提升性能）
         """
-
-        print(f"开始搜索书籍: {title}")
+        search_start = time.time()
+        logger.info(f"  🔎 开始并行搜索: {title}")
 
         # 使用线程池并行执行多个搜索策略
         result = None
+        strategy_times = {}
+
         with ThreadPoolExecutor(max_workers=2) as executor:
             # 提交两个搜索任务
+            logger.info("  ⚡ 并行提交2个搜索策略...")
             future_web = executor.submit(self._search_douban_web, title, author)
             future_book = executor.submit(self._search_douban_book, title, author)
 
@@ -48,21 +55,29 @@ class DoubanScraper:
                     temp_result = future.result()
                     if temp_result:
                         result = temp_result
-                        print(f"✅ 并行搜索成功: {result.get('source')}")
+                        elapsed = (time.time() - search_start) * 1000
+                        logger.info(f"  ✅ 并行搜索成功: {result.get('source')} ({elapsed:.2f}ms)")
                         # 取消其他未完成的任务
                         break
                 except Exception as e:
-                    print(f"搜索策略异常: {e}")
+                    logger.error(f"  ❌ 搜索策略异常: {e}")
                     continue
 
         # 如果并行策略都失败，使用兜底方案
         if not result:
-            print("所有搜索策略失败，使用兜底方案")
+            logger.warning("  ⚠️  所有搜索策略失败，使用兜底方案")
             result = self._create_fallback_result(title, author, publisher)
 
         # 只在明确要求时才获取短评
         if result and include_comments and result.get('url'):
+            comment_start = time.time()
+            logger.info("  💬 获取短评...")
             result['short_comments'] = self._get_short_comments(result['url'])
+            comment_time = (time.time() - comment_start) * 1000
+            logger.info(f"  ✅ 短评获取完成: {comment_time:.2f}ms")
+
+        total_time = (time.time() - search_start) * 1000
+        logger.info(f"  ⏱️  并行搜索总耗时: {total_time:.2f}ms")
 
         return result
 
