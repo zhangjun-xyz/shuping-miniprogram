@@ -91,11 +91,12 @@
 
       <!-- 豆瓣短评 -->
       <view class="short-comments" wx:if="{{doubanInfo}}">
-        <view class="comments-header">
-          <text class="comments-title">💬 豆瓣短评</text>
-          <button class="toggle-comments-btn" bindtap="toggleComments">
-            {{commentsExpanded ? '收起' : '查看短评'}}
-          </button>
+        <view class="comments-toggle-section" bindtap="toggleComments">
+          <view class="comments-header-content">
+            <text class="comments-title">💬 豆瓣短评</text>
+            <text class="comments-hint">{{commentsExpanded ? '' : '点击查看精选短评'}}</text>
+          </view>
+          <view class="toggle-icon">{{commentsExpanded ? '▲' : '▼'}}</view>
         </view>
 
         <!-- 展开后显示短评列表 -->
