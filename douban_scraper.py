@@ -4,6 +4,7 @@ from typing import Optional, Dict
 import time
 import urllib.parse
 import re
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 
 class DoubanScraper:
@@ -23,7 +24,7 @@ class DoubanScraper:
 
     def search_book(self, title: str, author: str = None, publisher: str = None, include_comments: bool = False) -> Optional[Dict]:
         """
-        搜索书籍信息，使用多种策略
+        搜索书籍信息，使用多种策略（并行执行）
 
         Args:
             title: 书名
@@ -34,24 +35,36 @@ class DoubanScraper:
 
         print(f"开始搜索书籍: {title}")
 
-        # 策略1: 豆瓣搜索
-        result = self._search_douban_web(title, author)
-        if result:
-            # 只在明确要求时才获取短评
-            if include_comments and result.get('url'):
-                result['short_comments'] = self._get_short_comments(result['url'])
-            return result
+        # 使用线程池并行执行多个搜索策略
+        result = None
+        with ThreadPoolExecutor(max_workers=2) as executor:
+            # 提交两个搜索任务
+            future_web = executor.submit(self._search_douban_web, title, author)
+            future_book = executor.submit(self._search_douban_book, title, author)
 
-        # 策略2: 豆瓣读书直接搜索
-        result = self._search_douban_book(title, author)
-        if result:
-            # 只在明确要求时才获取短评
-            if include_comments and result.get('url'):
-                result['short_comments'] = self._get_short_comments(result['url'])
-            return result
+            # 等待任一任务完成并返回有效结果
+            for future in as_completed([future_web, future_book], timeout=15):
+                try:
+                    temp_result = future.result()
+                    if temp_result:
+                        result = temp_result
+                        print(f"✅ 并行搜索成功: {result.get('source')}")
+                        # 取消其他未完成的任务
+                        break
+                except Exception as e:
+                    print(f"搜索策略异常: {e}")
+                    continue
 
-        # 策略3: 返回基础信息（确保有返回值）
-        return self._create_fallback_result(title, author, publisher)
+        # 如果并行策略都失败，使用兜底方案
+        if not result:
+            print("所有搜索策略失败，使用兜底方案")
+            result = self._create_fallback_result(title, author, publisher)
+
+        # 只在明确要求时才获取短评
+        if result and include_comments and result.get('url'):
+            result['short_comments'] = self._get_short_comments(result['url'])
+
+        return result
 
     def _search_douban_web(self, title: str, author: str = None) -> Optional[Dict]:
         """通过豆瓣搜索页面查找"""
@@ -66,7 +79,7 @@ class DoubanScraper:
             response = None
             for attempt in range(max_retries):
                 try:
-                    response = self.session.get(search_url, timeout=30)
+                    response = self.session.get(search_url, timeout=10)  # 减少超时到10秒
                     print(f"响应状态: {response.status_code}")
                     if response.status_code == 200:
                         break
@@ -74,7 +87,7 @@ class DoubanScraper:
                     print(f"第{attempt + 1}次尝试失败: {e}")
                     if attempt == max_retries - 1:
                         raise
-                    time.sleep(2)
+                    time.sleep(1)  # 减少重试等待时间到1秒
 
             if not response or response.status_code != 200:
                 print(f"搜索请求失败: {response.status_code if response else 'No response'}")
@@ -292,13 +305,13 @@ class DoubanScraper:
             max_retries = 2
             for attempt in range(max_retries):
                 try:
-                    response = self.session.get(book_search_url, timeout=30)
+                    response = self.session.get(book_search_url, timeout=10)  # 减少超时到10秒
                     break
                 except Exception as e:
                     print(f"豆瓣读书第{attempt + 1}次尝试失败: {e}")
                     if attempt == max_retries - 1:
                         raise
-                    time.sleep(2)
+                    time.sleep(1)  # 减少重试等待时间到1秒
 
             if response.status_code == 200:
                 soup = BeautifulSoup(response.text, 'html.parser')
