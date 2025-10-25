@@ -7,18 +7,19 @@ import re
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import logging
 import hashlib
-from functools import lru_cache
+import json
+import os
+from pathlib import Path
 
 # 配置日志
 logger = logging.getLogger(__name__)
 
 
 class DoubanScraper:
-    """最强健版豆瓣图书搜索（带缓存优化）"""
+    """最强健版豆瓣图书搜索（带文件缓存优化）"""
 
-    # 类级别的缓存字典，所有实例共享
-    _cache = {}
-    _cache_max_size = 1000  # 最多缓存1000个结果
+    # 缓存配置
+    _cache_dir = Path('/tmp/douban_cache')  # 使用临时目录作为缓存目录
     _cache_ttl = 3600  # 缓存1小时
 
     def __init__(self):
@@ -33,6 +34,9 @@ class DoubanScraper:
         self.session = requests.Session()
         self.session.headers.update(self.headers)
 
+        # 确保缓存目录存在
+        self._cache_dir.mkdir(exist_ok=True)
+
     @staticmethod
     def _get_cache_key(title: str, author: str = None, publisher: str = None) -> str:
         """生成缓存键"""
@@ -45,30 +49,54 @@ class DoubanScraper:
         return hashlib.md5(key_str.encode('utf-8')).hexdigest()
 
     @classmethod
+    def _get_cache_file(cls, cache_key: str) -> Path:
+        """获取缓存文件路径"""
+        return cls._cache_dir / f"{cache_key}.json"
+
+    @classmethod
     def _get_from_cache(cls, cache_key: str) -> Optional[Dict]:
-        """从缓存获取结果"""
-        if cache_key in cls._cache:
-            cached_data, timestamp = cls._cache[cache_key]
-            # 检查是否过期
-            if time.time() - timestamp < cls._cache_ttl:
-                logger.info(f"  💾 缓存命中: {cache_key[:8]}...")
-                return cached_data
-            else:
-                # 过期则删除
-                del cls._cache[cache_key]
+        """从文件缓存获取结果"""
+        cache_file = cls._get_cache_file(cache_key)
+
+        if cache_file.exists():
+            try:
+                with open(cache_file, 'r', encoding='utf-8') as f:
+                    cached_data = json.load(f)
+
+                # 检查是否过期
+                timestamp = cached_data.get('_cached_at', 0)
+                if time.time() - timestamp < cls._cache_ttl:
+                    logger.info(f"  💾 缓存命中: {cache_key[:8]}...")
+                    # 返回数据时移除缓存时间戳
+                    result = {k: v for k, v in cached_data.items() if k != '_cached_at'}
+                    return result
+                else:
+                    # 过期则删除
+                    cache_file.unlink()
+            except Exception as e:
+                logger.warning(f"  ⚠️  读取缓存失败: {e}")
+                # 读取失败则删除损坏的缓存文件
+                if cache_file.exists():
+                    cache_file.unlink()
+
         return None
 
     @classmethod
     def _save_to_cache(cls, cache_key: str, data: Dict):
-        """保存到缓存"""
-        # 如果缓存已满，删除最旧的10%
-        if len(cls._cache) >= cls._cache_max_size:
-            sorted_keys = sorted(cls._cache.keys(), key=lambda k: cls._cache[k][1])
-            for key in sorted_keys[:cls._cache_max_size // 10]:
-                del cls._cache[key]
+        """保存到文件缓存"""
+        try:
+            cache_file = cls._get_cache_file(cache_key)
 
-        cls._cache[cache_key] = (data, time.time())
-        logger.info(f"  💾 已缓存结果: {cache_key[:8]}... (缓存数: {len(cls._cache)})")
+            # 添加缓存时间戳
+            cached_data = data.copy()
+            cached_data['_cached_at'] = time.time()
+
+            with open(cache_file, 'w', encoding='utf-8') as f:
+                json.dump(cached_data, f, ensure_ascii=False, indent=2)
+
+            logger.info(f"  💾 已缓存结果: {cache_key[:8]}...")
+        except Exception as e:
+            logger.warning(f"  ⚠️  保存缓存失败: {e}")
 
     def search_book(self, title: str, author: str = None, publisher: str = None, include_comments: bool = False) -> Optional[Dict]:
         """
