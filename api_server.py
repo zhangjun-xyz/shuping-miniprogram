@@ -195,12 +195,16 @@ def search_douban():
 
         # 首先尝试豆瓣搜索
         book_info = None
+        # 检查是否需要包含短评（默认不包含，提升性能）
+        include_comments = data.get('include_comments', False)
+
         try:
             scraper = DoubanScraper()
             book_info = scraper.search_book(
                 title=data['title'],
                 author=data.get('author'),
-                publisher=data.get('publisher')
+                publisher=data.get('publisher'),
+                include_comments=include_comments
             )
             logger.info(f"豆瓣搜索结果: {book_info}")
         except Exception as e:
@@ -228,6 +232,49 @@ def search_douban():
         return jsonify({
             'success': False,
             'error': f'搜索失败: {str(e)}'
+        }), 500
+
+@app.route('/api/get-comments', methods=['POST'])
+def get_comments():
+    """
+    获取书籍短评（独立接口，按需加载）
+
+    Request JSON:
+    {
+        "url": "https://book.douban.com/subject/xxx/",  // 豆瓣书籍URL
+        "limit": 3  // 可选，短评数量，默认3条
+    }
+    """
+    try:
+        data = request.json
+        if not data or not data.get('url'):
+            return jsonify({
+                'success': False,
+                'error': '请提供豆瓣书籍URL'
+            }), 400
+
+        book_url = data['url']
+        limit = data.get('limit', 3)
+
+        # 获取短评
+        scraper = DoubanScraper()
+        comments = scraper._get_short_comments(book_url, limit=limit)
+
+        logger.info(f"获取短评成功: {len(comments)}条")
+
+        return jsonify({
+            'success': True,
+            'data': {
+                'comments': comments,
+                'count': len(comments)
+            }
+        })
+
+    except Exception as e:
+        logger.error(f"获取短评失败: {e}")
+        return jsonify({
+            'success': False,
+            'error': f'获取短评失败: {str(e)}'
         }), 500
 
 if __name__ == '__main__':

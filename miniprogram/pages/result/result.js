@@ -10,7 +10,11 @@ Page({
     stars: [],
     showFullIntro: false,
     retryTitle: '',
-    isRetrying: false
+    isRetrying: false,
+    // 短评相关
+    commentsExpanded: false,  // 短评是否展开
+    commentsLoading: false,   // 短评加载中
+    comments: []              // 短评数据
   },
 
   onLoad: function(options) {
@@ -82,6 +86,63 @@ Page({
   toggleIntro: function() {
     this.setData({
       showFullIntro: !this.data.showFullIntro
+    })
+  },
+
+  // 切换短评展开/折叠
+  toggleComments: function() {
+    const expanded = !this.data.commentsExpanded
+
+    this.setData({
+      commentsExpanded: expanded
+    })
+
+    // 如果是展开且还没有加载短评，则加载
+    if (expanded && this.data.comments.length === 0 && this.data.doubanInfo && this.data.doubanInfo.url) {
+      this.loadComments()
+    }
+  },
+
+  // 加载短评
+  loadComments: function() {
+    const that = this
+
+    if (!this.data.doubanInfo || !this.data.doubanInfo.url) {
+      return
+    }
+
+    this.setData({
+      commentsLoading: true
+    })
+
+    app.request({
+      url: '/api/get-comments',
+      method: 'POST',
+      data: {
+        url: this.data.doubanInfo.url,
+        limit: 3
+      }
+    }).then(function(data) {
+      if (data.success && data.data.comments) {
+        that.setData({
+          comments: data.data.comments
+        })
+      } else {
+        wx.showToast({
+          title: '短评加载失败',
+          icon: 'none'
+        })
+      }
+    }).catch(function(error) {
+      console.error('加载短评失败:', error)
+      wx.showToast({
+        title: '短评加载失败',
+        icon: 'none'
+      })
+    }).finally(function() {
+      that.setData({
+        commentsLoading: false
+      })
     })
   },
 

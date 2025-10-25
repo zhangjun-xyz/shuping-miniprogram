@@ -90,18 +90,39 @@
       </view>
 
       <!-- 豆瓣短评 -->
-      <view class="short-comments" wx:if="{{doubanInfo.short_comments && doubanInfo.short_comments.length > 0}}">
-        <text class="comments-title">💬 豆瓣短评</text>
-        <view class="comment-item" wx:for="{{doubanInfo.short_comments}}" wx:key="index">
-          <view class="comment-header">
-            <text class="comment-author">{{item.author}}</text>
-            <view class="comment-rating" wx:if="{{item.rating}}">
-              <text class="star" wx:for="{{item.rating}}" wx:for-item="star" wx:key="star">★</text>
+      <view class="short-comments" wx:if="{{doubanInfo}}">
+        <view class="comments-header">
+          <text class="comments-title">💬 豆瓣短评</text>
+          <button class="toggle-comments-btn" bindtap="toggleComments">
+            {{commentsExpanded ? '收起' : '查看短评'}}
+          </button>
+        </view>
+
+        <!-- 展开后显示短评列表 -->
+        <view class="comments-list" wx:if="{{commentsExpanded}}">
+          <!-- 加载中 -->
+          <view class="comments-loading" wx:if="{{commentsLoading}}">
+            <view class="loading-spinner-small"></view>
+            <text class="loading-text-small">加载中...</text>
+          </view>
+
+          <!-- 短评列表 -->
+          <view class="comment-item" wx:for="{{comments}}" wx:key="index" wx:if="{{!commentsLoading}}">
+            <view class="comment-header">
+              <text class="comment-author">{{item.author}}</text>
+              <view class="comment-rating" wx:if="{{item.rating}}">
+                <text class="star" wx:for="{{item.rating}}" wx:for-item="star" wx:key="star">★</text>
+              </view>
+            </view>
+            <text class="comment-content">{{item.content}}</text>
+            <view class="comment-footer">
+              <text class="useful-count">👍 {{item.useful_count}}人觉得有用</text>
             </view>
           </view>
-          <text class="comment-content">{{item.content}}</text>
-          <view class="comment-footer">
-            <text class="useful-count">👍 {{item.useful_count}}人觉得有用</text>
+
+          <!-- 暂无短评 -->
+          <view class="no-comments" wx:if="{{!commentsLoading && comments.length === 0}}">
+            <text class="no-comments-text">暂无短评</text>
           </view>
         </view>
       </view>

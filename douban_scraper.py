@@ -21,24 +21,32 @@ class DoubanScraper:
         self.session = requests.Session()
         self.session.headers.update(self.headers)
 
-    def search_book(self, title: str, author: str = None, publisher: str = None) -> Optional[Dict]:
-        """搜索书籍信息，使用多种策略"""
+    def search_book(self, title: str, author: str = None, publisher: str = None, include_comments: bool = False) -> Optional[Dict]:
+        """
+        搜索书籍信息，使用多种策略
+
+        Args:
+            title: 书名
+            author: 作者（可选）
+            publisher: 出版社（可选）
+            include_comments: 是否包含短评（默认False，提升性能）
+        """
 
         print(f"开始搜索书籍: {title}")
 
         # 策略1: 豆瓣搜索
         result = self._search_douban_web(title, author)
         if result:
-            # 获取豆瓣短评
-            if result.get('url'):
+            # 只在明确要求时才获取短评
+            if include_comments and result.get('url'):
                 result['short_comments'] = self._get_short_comments(result['url'])
             return result
 
         # 策略2: 豆瓣读书直接搜索
         result = self._search_douban_book(title, author)
         if result:
-            # 获取豆瓣短评
-            if result.get('url'):
+            # 只在明确要求时才获取短评
+            if include_comments and result.get('url'):
                 result['short_comments'] = self._get_short_comments(result['url'])
             return result
 
