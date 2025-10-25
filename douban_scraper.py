@@ -6,13 +6,20 @@ import urllib.parse
 import re
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import logging
+import hashlib
+from functools import lru_cache
 
 # 配置日志
 logger = logging.getLogger(__name__)
 
 
 class DoubanScraper:
-    """最强健版豆瓣图书搜索"""
+    """最强健版豆瓣图书搜索（带缓存优化）"""
+
+    # 类级别的缓存字典，所有实例共享
+    _cache = {}
+    _cache_max_size = 1000  # 最多缓存1000个结果
+    _cache_ttl = 3600  # 缓存1小时
 
     def __init__(self):
         self.headers = {
@@ -26,9 +33,46 @@ class DoubanScraper:
         self.session = requests.Session()
         self.session.headers.update(self.headers)
 
+    @staticmethod
+    def _get_cache_key(title: str, author: str = None, publisher: str = None) -> str:
+        """生成缓存键"""
+        key_parts = [title.strip().lower()]
+        if author:
+            key_parts.append(author.strip().lower())
+        if publisher:
+            key_parts.append(publisher.strip().lower())
+        key_str = ':'.join(key_parts)
+        return hashlib.md5(key_str.encode('utf-8')).hexdigest()
+
+    @classmethod
+    def _get_from_cache(cls, cache_key: str) -> Optional[Dict]:
+        """从缓存获取结果"""
+        if cache_key in cls._cache:
+            cached_data, timestamp = cls._cache[cache_key]
+            # 检查是否过期
+            if time.time() - timestamp < cls._cache_ttl:
+                logger.info(f"  💾 缓存命中: {cache_key[:8]}...")
+                return cached_data
+            else:
+                # 过期则删除
+                del cls._cache[cache_key]
+        return None
+
+    @classmethod
+    def _save_to_cache(cls, cache_key: str, data: Dict):
+        """保存到缓存"""
+        # 如果缓存已满，删除最旧的10%
+        if len(cls._cache) >= cls._cache_max_size:
+            sorted_keys = sorted(cls._cache.keys(), key=lambda k: cls._cache[k][1])
+            for key in sorted_keys[:cls._cache_max_size // 10]:
+                del cls._cache[key]
+
+        cls._cache[cache_key] = (data, time.time())
+        logger.info(f"  💾 已缓存结果: {cache_key[:8]}... (缓存数: {len(cls._cache)})")
+
     def search_book(self, title: str, author: str = None, publisher: str = None, include_comments: bool = False) -> Optional[Dict]:
         """
-        搜索书籍信息，使用多种策略（并行执行）
+        搜索书籍信息，使用多种策略（并行执行）+ 缓存
 
         Args:
             title: 书名
@@ -37,11 +81,30 @@ class DoubanScraper:
             include_comments: 是否包含短评（默认False，提升性能）
         """
         search_start = time.time()
+
+        # 生成缓存键（不包含短评标志，短评单独获取）
+        cache_key = self._get_cache_key(title, author, publisher)
+
+        # 检查缓存
+        cached_result = self._get_from_cache(cache_key)
+        if cached_result:
+            # 如果需要短评且缓存中没有，则获取短评
+            if include_comments and not cached_result.get('short_comments'):
+                if cached_result.get('url'):
+                    comment_start = time.time()
+                    logger.info("  💬 获取短评...")
+                    cached_result['short_comments'] = self._get_short_comments(cached_result['url'])
+                    comment_time = (time.time() - comment_start) * 1000
+                    logger.info(f"  ✅ 短评获取完成: {comment_time:.2f}ms")
+
+            total_time = (time.time() - search_start) * 1000
+            logger.info(f"  ⏱️  缓存查询总耗时: {total_time:.2f}ms")
+            return cached_result
+
         logger.info(f"  🔎 开始并行搜索: {title}")
 
         # 使用线程池并行执行多个搜索策略
         result = None
-        strategy_times = {}
 
         with ThreadPoolExecutor(max_workers=2) as executor:
             # 提交两个搜索任务
@@ -49,8 +112,8 @@ class DoubanScraper:
             future_web = executor.submit(self._search_douban_web, title, author)
             future_book = executor.submit(self._search_douban_book, title, author)
 
-            # 等待任一任务完成并返回有效结果
-            for future in as_completed([future_web, future_book], timeout=15):
+            # 等待任一任务完成并返回有效结果（使用更短的超时）
+            for future in as_completed([future_web, future_book], timeout=8):  # 减少到8秒
                 try:
                     temp_result = future.result()
                     if temp_result:
@@ -68,6 +131,10 @@ class DoubanScraper:
             logger.warning("  ⚠️  所有搜索策略失败，使用兜底方案")
             result = self._create_fallback_result(title, author, publisher)
 
+        # 保存到缓存
+        if result:
+            self._save_to_cache(cache_key, result)
+
         # 只在明确要求时才获取短评
         if result and include_comments and result.get('url'):
             comment_start = time.time()
@@ -82,27 +149,29 @@ class DoubanScraper:
         return result
 
     def _search_douban_web(self, title: str, author: str = None) -> Optional[Dict]:
-        """通过豆瓣搜索页面查找"""
+        """通过豆瓣搜索页面查找（优化版）"""
         try:
             query = title.strip()
             search_url = f"https://www.douban.com/search?cat=1001&q={urllib.parse.quote(query)}"
 
             print(f"尝试访问: {search_url}")
 
-            # 重试机制
-            max_retries = 2
+            # 优化的重试机制：最多1次重试，快速失败
+            max_retries = 1  # 减少到1次重试
             response = None
-            for attempt in range(max_retries):
+            for attempt in range(max_retries + 1):
                 try:
-                    response = self.session.get(search_url, timeout=10)  # 减少超时到10秒
+                    # 第一次尝试用更短的超时
+                    timeout = 5 if attempt == 0 else 7  # 5秒或7秒
+                    response = self.session.get(search_url, timeout=timeout)
                     print(f"响应状态: {response.status_code}")
                     if response.status_code == 200:
                         break
                 except Exception as e:
                     print(f"第{attempt + 1}次尝试失败: {e}")
-                    if attempt == max_retries - 1:
+                    if attempt == max_retries:
                         raise
-                    time.sleep(1)  # 减少重试等待时间到1秒
+                    time.sleep(0.5)  # 重试等待减少到0.5秒
 
             if not response or response.status_code != 200:
                 print(f"搜索请求失败: {response.status_code if response else 'No response'}")
@@ -310,23 +379,25 @@ class DoubanScraper:
         return title_clean in text_clean or text_clean in title_clean
 
     def _search_douban_book(self, title: str, author: str = None) -> Optional[Dict]:
-        """通过豆瓣读书页面搜索"""
+        """通过豆瓣读书页面搜索（优化版）"""
         try:
             query = urllib.parse.quote(title)
             book_search_url = f"https://book.douban.com/subject_search?search_text={query}"
 
             print(f"尝试豆瓣读书搜索: {book_search_url}")
 
-            max_retries = 2
-            for attempt in range(max_retries):
+            # 优化的重试机制：最多1次重试
+            max_retries = 1
+            for attempt in range(max_retries + 1):
                 try:
-                    response = self.session.get(book_search_url, timeout=10)  # 减少超时到10秒
+                    timeout = 5 if attempt == 0 else 7  # 使用更短的超时
+                    response = self.session.get(book_search_url, timeout=timeout)
                     break
                 except Exception as e:
                     print(f"豆瓣读书第{attempt + 1}次尝试失败: {e}")
-                    if attempt == max_retries - 1:
+                    if attempt == max_retries:
                         raise
-                    time.sleep(1)  # 减少重试等待时间到1秒
+                    time.sleep(0.5)  # 重试等待减少到0.5秒
 
             if response.status_code == 200:
                 soup = BeautifulSoup(response.text, 'html.parser')

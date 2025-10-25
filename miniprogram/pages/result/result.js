@@ -73,6 +73,11 @@ Page({
       doubanInfo,
       useAI
     })
+
+    // 预加载短评数据
+    if (doubanInfo && doubanInfo.url) {
+      this.loadComments()
+    }
   },
 
   // 返回首页
